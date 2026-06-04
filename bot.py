@@ -16,39 +16,41 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
 
 async def motivate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Fetch a live motivational quote from a free API and send it to the user."""
-    # Send a quick placeholder while fetching data
+    """Fetch a live motivational quote from ZenQuotes API and send it to the user."""
     status_message = await update.message.reply_text("🌱 Gathering inspiration...")
 
     try:
-        # Fetch a random quote from a free public API
+        # Fetch a completely random quote from the live ZenQuotes endpoint
         async with httpx.AsyncClient() as client:
-            response = await client.get("https://api.quotable.io/random?tags=motivational|inspirational", timeout=10.0)
+            response = await client.get("https://zenquotes.io/api/random", timeout=15.0)
             
         if response.status_code == 200:
             data = response.json()
-            quote = data.get("content")
-            author = data.get("author", "Unknown")
-            
-            formatted_quote = (
-                "🔥 **DAILY INSPIRATION** 🔥\n"
-                "━━━━━━━━━━━━━━━━━━━━\n"
-                f"💬 _\"{quote}\"_\n\n"
-                f"✍️ — **{author}**\n"
-                "━━━━━━━━━━━━━━━━━━━━\n"
-                "🎯 _Keep pushing forward today!_"
-            )
-            await status_message.edit_text(formatted_quote, parse_mode="Markdown")
-        else:
-            # Fallback quote list if the public API experiences temporary downtime
-            await status_message.edit_text(
-                "💪 **\"Success is not final, failure is not fatal: it is the courage to continue that counts.\"**\n\n— *Winston Churchill*", 
-                parse_mode="Markdown"
-            )
+            # ZenQuotes returns data as a list of dicts: [{"q": "text", "a": "author"}]
+            if isinstance(data, list) and len(data) > 0:
+                quote = data[0].get("q")
+                author = data[0].get("a", "Unknown")
+                
+                formatted_quote = (
+                    "🔥 **DAILY INSPIRATION** 🔥\n"
+                    "━━━━━━━━━━━━━━━━━━━━\n"
+                    f"💬 _\"{quote}\"_\n\n"
+                    f"✍️ — **{author}**\n"
+                    "━━━━━━━━━━━━━━━━━━━━\n"
+                    "🎯 _Keep pushing forward today!_"
+                )
+                await status_message.edit_text(formatted_quote, parse_mode="Markdown")
+                return
+                
+        # Internal backup 1 if JSON parsing falls through
+        await status_message.edit_text(
+            "💪 **\"Success is not final, failure is not fatal: it is the courage to continue that counts.\"**\n\n— *Winston Churchill*", 
+            parse_mode="Markdown"
+        )
 
     except Exception as e:
         print(f"Error fetching quote: {str(e)}")
-        # Secondary fallback quote if network fails entirely
+        # Internal backup 2 if network fails completely
         await status_message.edit_text(
             "🚀 **\"The only way to do great work is to love what you do.\"**\n\n— *Steve Jobs*", 
             parse_mode="Markdown"
@@ -63,7 +65,7 @@ def main():
     application.add_handler(CommandHandler("motivate", motivate))
 
     # Run polling loop
-    print("✅ MotivatorBot is running actively as a Background Worker...")
+    print("✅ MotivatorBot is running keyless on ZenQuotes...")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__':
